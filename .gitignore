@@ -1,0 +1,19 @@
+# Visual Studio cache folder
+.vs/
+
+# Build folders
+bin/
+obj/
+
+# User settings
+*.user
+*.suo
+
+# Temp + Logs
+*.log
+
+# OneDrive temp files
+*.tmp
+
+# Publish outputs
+wwwroot/lib/
