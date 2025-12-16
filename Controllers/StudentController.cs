@@ -34,6 +34,8 @@ namespace asp.net_core_web_api_Day_1.Controllers
             connectionString = configuration.GetConnectionString("SqlServerDb")!;
         }
 
+        //CREATE-POST
+
         [HttpPost]
         public IActionResult CreateStudent(StudentDto studentDto)
         {
@@ -66,6 +68,8 @@ namespace asp.net_core_web_api_Day_1.Controllers
 
             return Ok();
         }
+
+        //GET
 
         [HttpGet]
         public IActionResult GetStudent() 
@@ -103,6 +107,65 @@ namespace asp.net_core_web_api_Day_1.Controllers
             }
 
             return Ok(students);
+        }
+
+        //UPDATE
+        [HttpPut("{id}")]
+        public IActionResult UpdateStudent(int id, StudentDto studentDto) 
+        {
+            try
+            {
+                using (var connection = new SqlConnection(connectionString)) 
+                {
+                    connection.Open();
+
+                    string sql = "UPDATE Student SET Nome=@Nome, Cognome=@cognome, Email=@Email WHERE Id=@Id";
+
+                    using (var command = new SqlCommand(sql, connection)) 
+                    {
+                        command.Parameters.AddWithValue("@Nome", studentDto.Nome);
+                        command.Parameters.AddWithValue("@Cognome", studentDto.Cognome);
+                        command.Parameters.AddWithValue("@Email", studentDto.Email);
+                        command.Parameters.AddWithValue("@Id", id);
+
+                        command.ExecuteNonQuery();
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            return Ok();
+        }
+
+        //DELETE
+        [HttpDelete("{id}")]
+        public IActionResult DeleteStudent(int id) 
+        {
+            try 
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    string sql = "DELETE FROM Student WHERE Id=@Id";
+
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@Id", id);
+
+                        command.ExecuteNonQuery();
+                    }
+                }
+
+            } 
+            catch (Exception ex) 
+            {
+               return BadRequest(ex.Message);
+            }
+
+            return Ok();
         }
     }
 }
