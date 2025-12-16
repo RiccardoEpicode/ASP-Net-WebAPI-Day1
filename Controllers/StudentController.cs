@@ -167,5 +167,84 @@ namespace asp.net_core_web_api_Day_1.Controllers
 
             return Ok();
         }
+
+        //STUDENT PROFILE
+
+        [HttpPost("profile")]
+        public IActionResult CreateStudentProfile(StudentProfileDto studentProfileDto)
+        {
+            try
+            {
+                //creiamo una connessione al DB
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    // apriamo la connessione al database
+                    connection.Open();
+
+                    //facciamo una QUERY SQL
+                    string sql =
+                        "INSERT INTO StudentProfile (FirstName, LastName, FiscalCode, BirthDate, StudentId) " +
+                        "VALUES (@FirstName, @LastName, @FiscalCode, @BirthDate, @StudentId)";
+
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@FirstName", studentProfileDto.FirstName);
+                        command.Parameters.AddWithValue("@LastName", studentProfileDto.LastName);
+                        command.Parameters.AddWithValue("@FiscalCode", studentProfileDto.FiscalCode);
+                        command.Parameters.AddWithValue("@BirthDate", studentProfileDto.BirthDate);
+                        command.Parameters.AddWithValue("@StudentId", studentProfileDto.StudentId);
+
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return Ok();
+        }
+
+        //GET
+
+        [HttpGet("profile")]
+        public IActionResult GetStudentProfile()
+        {
+            List<StudentProfile> studentProfiles = new List<StudentProfile>();
+
+            try
+            {
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
+                    string sql =
+                        "SELECT * FROM StudentProfile";
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        using (var reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                StudentProfile studentProfile = new StudentProfile();
+                                studentProfile.StudentId = reader.GetInt32(reader.GetOrdinal("Id"));
+                                studentProfile.FirstName = reader.GetString(1);
+                                studentProfile.LastName = reader.GetString(2);
+                                studentProfile.FiscalCode = reader.GetString(3);
+                                studentProfile.BirthDate = reader.GetDateTime(reader.GetOrdinal("BirthDate"));
+
+                                studentProfiles.Add(studentProfile);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return Ok(studentProfiles);
+        }
     }
 }
