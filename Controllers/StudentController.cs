@@ -1,250 +1,197 @@
 ﻿using asp.net_core_web_api_Day_1.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using static System.Net.WebRequestMethods;
 
 namespace asp.net_core_web_api_Day_1.Controllers
 {
-    [Route("api/[controller]")] // Questa riga definisce l’URL.
-    [ApiController] // ATTRIBUTO CHE DA ISTRUZIONI A .NET E DEFINISCE QUESTO CONTROLLER COME WEB API
-
-                    /* Attiva automaticamente:
-                     
-                       - validazione automatica dei DTO
-                       - binding automatico del JSON
-                       - risposte HTTP corrette(400, 200, ecc.)
-                    */
-
-    public class StudentController : ControllerBase /* GRAZIE A ControllerBase EREDITIAMO 
-
-                                                      - ottieni metodi come Ok(), BadRequest(), etc.
-
-                                                      - puoi rispondere HTTP
-                                                    */
+    [ApiController]
+    [Route("api/[controller]")]
+    public class StudentController : ControllerBase
     {
-        //CONNESSIONE AL DATABASE
-        private readonly string connectionString;
+        private readonly string _connectionString;
 
-        //COSTRUTTORE
-        public StudentController(IConfiguration configuration) // IConfiguration è un oggetto fornito da
-                                                               // ASP.NET Core.che ci permette con
-                                                               // la DI di leggere appsettings.json
+        public StudentController(IConfiguration configuration)
         {
-            connectionString = configuration.GetConnectionString("SqlServerDb")!;
+            _connectionString = configuration.GetConnectionString("SqlServerDb")!;
         }
 
-        //CREATE-POST
-
+        // CREATE STUDENT
         [HttpPost]
         public IActionResult CreateStudent(StudentDto studentDto)
         {
             try
             {
-                //creiamo una connessione al DB
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    // apriamo la connessione al database
-                    connection.Open();
+                using var connection = new SqlConnection(_connectionString);
+                connection.Open();
 
-                    //facciamo una QUERY SQL
-                    string sql =
-                        "INSERT INTO Student (Nome, Cognome, Email) VALUES (@Nome, @Cognome, @Email)";
+                string sql =
+                    "INSERT INTO Student (Nome, Cognome, Email) VALUES (@Nome, @Cognome, @Email)";
 
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        command.Parameters.AddWithValue("@Nome", studentDto.Nome);
-                        command.Parameters.AddWithValue("@Cognome", studentDto.Cognome);
-                        command.Parameters.AddWithValue("@Email", studentDto.Email);
+                using var command = new SqlCommand(sql, connection);
+                command.Parameters.AddWithValue("@Nome", studentDto.Nome);
+                command.Parameters.AddWithValue("@Cognome", studentDto.Cognome);
+                command.Parameters.AddWithValue("@Email", studentDto.Email);
 
-                        command.ExecuteNonQuery();
-                    }
-                }
+                command.ExecuteNonQuery();
+                return Ok();
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
-
-            return Ok();
         }
 
-        //GET
-
+        // GET STUDENTS
+        [Authorize]
         [HttpGet]
-        public IActionResult GetStudent() 
+        public IActionResult GetStudent()
         {
-            List<Student> students = new List<Student>();
+            List<Student> students = new();
 
             try
             {
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    connection.Open();
-                    string sql =
-                        "SELECT * FROM Student";
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        using (var reader = command.ExecuteReader())
-                        {
-                            while (reader.Read()) 
-                            { 
-                                Student student = new Student();
-                                student.Id = reader.GetInt32(reader.GetOrdinal("Id"));
-                                student.Nome = reader.GetString(1);
-                                student.Cognome = reader.GetString(2);
-                                student.Email = reader.GetString(3);
+                using var connection = new SqlConnection(_connectionString);
+                connection.Open();
 
-                                students.Add(student);
-                            }
-                        }
-                    }
+                using var command = new SqlCommand("SELECT * FROM Student", connection);
+                using var reader = command.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    students.Add(new Student
+                    {
+                        Id = reader.GetInt32(0),
+                        Nome = reader.GetString(1),
+                        Cognome = reader.GetString(2),
+                        Email = reader.GetString(3)
+                    });
                 }
+
+                return Ok(students);
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
-
-            return Ok(students);
         }
 
-        //UPDATE
+        // UPDATE STUDENT
+        [Authorize]
         [HttpPut("{id}")]
-        public IActionResult UpdateStudent(int id, StudentDto studentDto) 
+        public IActionResult UpdateStudent(int id, StudentDto studentDto)
         {
             try
             {
-                using (var connection = new SqlConnection(connectionString)) 
-                {
-                    connection.Open();
+                using var connection = new SqlConnection(_connectionString);
+                connection.Open();
 
-                    string sql = "UPDATE Student SET Nome=@Nome, Cognome=@cognome, Email=@Email WHERE Id=@Id";
+                string sql =
+                    "UPDATE Student SET Nome=@Nome, Cognome=@Cognome, Email=@Email WHERE Id=@Id";
 
-                    using (var command = new SqlCommand(sql, connection)) 
-                    {
-                        command.Parameters.AddWithValue("@Nome", studentDto.Nome);
-                        command.Parameters.AddWithValue("@Cognome", studentDto.Cognome);
-                        command.Parameters.AddWithValue("@Email", studentDto.Email);
-                        command.Parameters.AddWithValue("@Id", id);
+                using var command = new SqlCommand(sql, connection);
+                command.Parameters.AddWithValue("@Nome", studentDto.Nome);
+                command.Parameters.AddWithValue("@Cognome", studentDto.Cognome);
+                command.Parameters.AddWithValue("@Email", studentDto.Email);
+                command.Parameters.AddWithValue("@Id", id);
 
-                        command.ExecuteNonQuery();
-                    }
-                }
-
+                command.ExecuteNonQuery();
+                return Ok();
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
-            return Ok();
         }
 
-        //DELETE
+        // DELETE STUDENT
+        [Authorize]
         [HttpDelete("{id}")]
-        public IActionResult DeleteStudent(int id) 
-        {
-            try 
-            {
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    connection.Open();
-                    string sql = "DELETE FROM Student WHERE Id=@Id";
-
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        command.Parameters.AddWithValue("@Id", id);
-
-                        command.ExecuteNonQuery();
-                    }
-                }
-
-            } 
-            catch (Exception ex) 
-            {
-               return BadRequest(ex.Message);
-            }
-
-            return Ok();
-        }
-
-        //STUDENT PROFILE
-
-        [HttpPost("profile")]
-        public IActionResult CreateStudentProfile(StudentProfileDto studentProfileDto)
+        public IActionResult DeleteStudent(int id)
         {
             try
             {
-                //creiamo una connessione al DB
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    // apriamo la connessione al database
-                    connection.Open();
+                using var connection = new SqlConnection(_connectionString);
+                connection.Open();
 
-                    //facciamo una QUERY SQL
-                    string sql =
-                        "INSERT INTO StudentProfile (FirstName, LastName, FiscalCode, BirthDate, StudentId) " +
-                        "VALUES (@FirstName, @LastName, @FiscalCode, @BirthDate, @StudentId)";
+                using var command =
+                    new SqlCommand("DELETE FROM Student WHERE Id=@Id", connection);
+                command.Parameters.AddWithValue("@Id", id);
 
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        command.Parameters.AddWithValue("@FirstName", studentProfileDto.FirstName);
-                        command.Parameters.AddWithValue("@LastName", studentProfileDto.LastName);
-                        command.Parameters.AddWithValue("@FiscalCode", studentProfileDto.FiscalCode);
-                        command.Parameters.AddWithValue("@BirthDate", studentProfileDto.BirthDate);
-                        command.Parameters.AddWithValue("@StudentId", studentProfileDto.StudentId);
-
-                        command.ExecuteNonQuery();
-                    }
-                }
+                command.ExecuteNonQuery();
+                return Ok();
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
-
-            return Ok();
         }
 
-        //GET
+        // CREATE STUDENT PROFILE
+        [Authorize]
+        [HttpPost("profile")]
+        public IActionResult CreateStudentProfile(StudentProfileDto dto)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                connection.Open();
 
+                string sql =
+                    "INSERT INTO StudentProfile (FirstName, LastName, FiscalCode, BirthDate, StudentId) " +
+                    "VALUES (@FirstName, @LastName, @FiscalCode, @BirthDate, @StudentId)";
+
+                using var command = new SqlCommand(sql, connection);
+                command.Parameters.AddWithValue("@FirstName", dto.FirstName);
+                command.Parameters.AddWithValue("@LastName", dto.LastName);
+                command.Parameters.AddWithValue("@FiscalCode", dto.FiscalCode);
+                command.Parameters.AddWithValue("@BirthDate", dto.BirthDate);
+                command.Parameters.AddWithValue("@StudentId", dto.StudentId);
+
+                command.ExecuteNonQuery();
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        // GET STUDENT PROFILES
+        [Authorize]
         [HttpGet("profile")]
         public IActionResult GetStudentProfile()
         {
-            List<StudentProfile> studentProfiles = new List<StudentProfile>();
+            List<StudentProfile> profiles = new();
 
             try
             {
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    connection.Open();
-                    string sql =
-                        "SELECT * FROM StudentProfile";
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        using (var reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                StudentProfile studentProfile = new StudentProfile();
-                                studentProfile.StudentId = reader.GetInt32(reader.GetOrdinal("Id"));
-                                studentProfile.FirstName = reader.GetString(1);
-                                studentProfile.LastName = reader.GetString(2);
-                                studentProfile.FiscalCode = reader.GetString(3);
-                                studentProfile.BirthDate = reader.GetDateTime(reader.GetOrdinal("BirthDate"));
+                using var connection = new SqlConnection(_connectionString);
+                connection.Open();
 
-                                studentProfiles.Add(studentProfile);
-                            }
-                        }
-                    }
+                using var command =
+                    new SqlCommand("SELECT * FROM StudentProfile", connection);
+                using var reader = command.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    profiles.Add(new StudentProfile
+                    {
+                        Id = reader.GetInt32(0),
+                        FirstName = reader.GetString(1),
+                        LastName = reader.GetString(2),
+                        FiscalCode = reader.GetString(3),
+                        BirthDate = reader.GetDateTime(reader.GetOrdinal("BirthDate")),
+                        StudentId = reader.GetInt32(reader.GetOrdinal("StudentId"))
+                    });
                 }
+
+                return Ok(profiles);
             }
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
             }
-
-            return Ok(studentProfiles);
         }
     }
 }

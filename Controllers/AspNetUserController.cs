@@ -1,42 +1,57 @@
-﻿using asp.net_core_web_api_Day_1.Data;
-using asp.net_core_web_api_Day_1.Models.Entity;
-using Microsoft.AspNetCore.Http;
+﻿using asp.net_core_web_api_Day_1.Models.Entity;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace asp.net_core_web_api_Day_1.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
     public class AspNetUserController : ControllerBase
     {
-        private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IConfiguration _configuration;
 
         public AspNetUserController(
             UserManager<ApplicationUser> userManager,
-            RoleManager<IdentityRole> roleManager,
-            SignInManager<ApplicationUser> signInManager) 
+            IConfiguration configuration)
         {
             _userManager = userManager;
-            _roleManager = roleManager;
-            _signInManager = signInManager;
+            _configuration = configuration;
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Login(LoginRequestDto loginRequestDto) {
-            try 
-            {
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginRequestDto dto)
+        {
+            var user = await _userManager.FindByNameAsync(dto.Username);
 
-            } 
-            catch (Exception ex) 
+            if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
+                return Unauthorized("Invalid credentials");
+
+            var claims = new[]
             {
-                return BadRequest(ex.Message);
-            }
-        
-        
+                new Claim(ClaimTypes.Name, user.UserName!)
+            };
+
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!)
+            );
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.Now.AddHours(1),
+                signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
+            );
+
+            return Ok(new
+            {
+                token = new JwtSecurityTokenHandler().WriteToken(token)
+            });
         }
     }
 }
